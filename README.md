@@ -1,4 +1,4 @@
-# Production-Grade Housing Price Prediction System
+# US Housing Price Prediction System
 
 [![CI/CD Pipeline](https://github.com/ayushsyntax/Regression_ML-End-to-End/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ayushsyntax/Regression_ML-End-to-End/actions)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
