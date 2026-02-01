@@ -7,6 +7,13 @@ AWS_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1").strip()
 iam = boto3.client("iam", region_name=AWS_REGION)
 
 def create_execution_role():
+    """
+    Provision the ECS Task Execution Role for core container operations.
+
+    Responsibility:
+        - Grants ECS permission to pull container images and push logs.
+        - Attaches the managed AmazonECSTaskExecutionRolePolicy.
+    """
     role_name = "ecsTaskExecutionRole"
     trust_policy = {
         "Version": "2012-10-17",
@@ -44,6 +51,13 @@ def create_execution_role():
     return iam.get_role(RoleName=role_name)['Role']['Arn']
 
 def create_task_role():
+    """
+    Provision the ECS Task Role for application-level AWS access.
+
+    Responsibility:
+        - Grants running containers permission to access project S3 buckets.
+        - Attaches the managed AmazonS3FullAccess policy.
+    """
     role_name = "ecs_s3_access"
     trust_policy = {
         "Version": "2012-10-17",

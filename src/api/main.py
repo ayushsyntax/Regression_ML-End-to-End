@@ -18,8 +18,11 @@ from typing import List, Dict, Any     # For type hints (clarity in endpoints)
 import pandas as pd                    # To handle incoming JSON as DataFrames
 import boto3, os                       # AWS SDK for Python + env variables
 
-# Import inference pipeline
+# -----------------------------------------------------------------------------
+# CORE INFRASTRUCTURE
+# -----------------------------------------------------------------------------
 from src.inference_pipeline.inference import predict
+from src.batch.run_monthly import run_monthly_predictions
 
 # ----------------------------
 # Config
@@ -29,10 +32,12 @@ REGION = os.getenv("AWS_REGION", "us-east-1")
 s3 = boto3.client("s3", region_name=REGION)
 
 def load_from_s3(key, local_path):
-    """Download from S3 if not already cached locally.
+    """
+    Synchronize project artifacts from S3 to local storage.
 
-    Ensures your app always has the latest model/data locally,
-    but avoids re-downloading every time it starts.
+    Responsibility:
+        - Ensures model weights and feature definitions are available locally.
+        - Avoids redundant network overhead by checking for existing local files.
     """
     local_path = Path(local_path)
     if not local_path.exists():
@@ -127,14 +132,4 @@ def latest_predictions(limit: int = 5):
     }
 
 
-"""
-🔹 Execution Order / Module Flow
-
-1. Imports (FastAPI, pandas, boto3, your inference function).
-2. Config setup (env vars → bucket/region).
-3. S3 utility (load_from_s3).
-4. Download + load model/artifacts (MODEL_PATH, TRAIN_FE_PATH).
-5. Infer schema (TRAIN_FEATURE_COLUMNS).
-6. Create FastAPI app (app = FastAPI).
-7. Declare endpoints (/, /health, /predict, /run_batch, /latest_predictions).
-"""
+# End of main.py

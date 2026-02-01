@@ -15,7 +15,17 @@ def load_and_split_data(
     raw_path: str = "data/raw/untouched_raw_original.csv",
     output_dir: Path | str = DATA_DIR,
 ):
-    """Load raw dataset, split into train/eval/holdout by date, and save to output_dir."""
+    """
+    Load raw historical data and execute a sequential time-series split.
+
+    Responsibility:
+        - Orchestrates the initial division of raw data into train, eval, and holdout sets.
+        - Ensures chronological integrity by splitting based on fixed date cutoffs.
+        - Persists individual splits to the raw data directory for downstream processing.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: The resulting tri-split datasets.
+    """
     df = pd.read_csv(raw_path)
 
     # Ensure datetime + sort

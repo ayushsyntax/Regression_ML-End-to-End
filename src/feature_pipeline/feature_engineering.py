@@ -20,32 +20,38 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 # ---------- feature functions ----------
 
 def add_date_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Extract year, quarter, and month from date column."""
     df["date"] = pd.to_datetime(df["date"])
     df["year"] = df["date"].dt.year
     df["quarter"] = df["date"].dt.quarter
     df["month"] = df["date"].dt.month
-    # place after date for readability (optional)
+
+    # Place new columns after date for readability
     df.insert(1, "year", df.pop("year"))
     df.insert(2, "quarter", df.pop("quarter"))
     df.insert(3, "month", df.pop("month"))
     return df
 
 
-#Creates a frequency encoding (how often a value appears).
-#Fit only on train, then applied to eval.
 def frequency_encode(train: pd.DataFrame, eval: pd.DataFrame, col: str):
+    """
+    Create a frequency encoding (count of value occurrences).
+    Fits on train data, applies map to train and eval.
+    """
     freq_map = train[col].value_counts()
     train[f"{col}_freq"] = train[col].map(freq_map)
     eval[f"{col}_freq"] = eval[col].map(freq_map).fillna(0)
     return train, eval, freq_map
 
 
-#Uses target encoding (replace category with average of target variable).
-#Fitted only on train (prevents leakage).
 def target_encode(train: pd.DataFrame, eval: pd.DataFrame, col: str, target: str):
     """
-    Use TargetEncoder on `col`, consistently name as <col>_encoded.
-    For city_full → city_full_encoded (keeps schema aligned with inference).
+    Use TargetEncoder to replace category with average of target variable.
+    Fits only on train to prevent data leakage.
+
+    Notes:
+        - Renames output column to <col>_encoded
+        - Handles 'city_full' naming explicitly for inference consistency
     """
     te = TargetEncoder(cols=[col])
     encoded_col = f"{col}_encoded" if col != "city_full" else "city_full_encoded"
@@ -54,8 +60,8 @@ def target_encode(train: pd.DataFrame, eval: pd.DataFrame, col: str, target: str
     return train, eval, te
 
 
-
 def drop_unused_columns(train: pd.DataFrame, eval: pd.DataFrame):
+    """Drop columns that are raw features, leakage sources, or identifiers."""
     drop_cols = ["date", "city_full", "city", "zipcode", "median_sale_price"]
     train = train.drop(columns=[c for c in drop_cols if c in train.columns], errors="ignore")
     eval = eval.drop(columns=[c for c in drop_cols if c in eval.columns], errors="ignore")
@@ -64,8 +70,6 @@ def drop_unused_columns(train: pd.DataFrame, eval: pd.DataFrame):
 
 # ---------- pipeline ----------
 
-#Handles full pipeline:
-#reads cleaned CSVs → applies feature engineering → saves engineered data + encoders.
 def run_feature_engineering(
     in_train_path: Path | str | None = None,
     in_eval_path: Path | str | None = None,
@@ -73,8 +77,15 @@ def run_feature_engineering(
     output_dir: Path | str = PROCESSED_DIR,
 ):
     """
-    Run feature engineering and write outputs + encoders to disk.
-    Applies the same transformations to train, eval, and holdout.
+    Execute full feature engineering pipeline.
+
+    Steps:
+    1. Read cleaned CSVs (train, eval, holdout)
+    2. Apply date feature extraction
+    3. Fit frequency encoder on train (zipcode)
+    4. Fit target encoder on train (city_full)
+    5. Drop unused/leakage columns
+    6. Save processed datasets and encoder artifacts
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -105,14 +116,14 @@ def run_feature_engineering(
     if "zipcode" in train_df.columns:
         train_df, eval_df, freq_map = frequency_encode(train_df, eval_df, "zipcode")
         holdout_df["zipcode_freq"] = holdout_df["zipcode"].map(freq_map).fillna(0)
-        dump(freq_map, MODELS_DIR / "freq_encoder.pkl")   # save mapping
+        dump(freq_map, MODELS_DIR / "freq_encoder.pkl")
 
     # Target encode city_full (fit on train only)
     target_encoder = None
     if "city_full" in train_df.columns:
         train_df, eval_df, target_encoder = target_encode(train_df, eval_df, "city_full", "price")
         holdout_df["city_full_encoded"] = target_encoder.transform(holdout_df["city_full"])
-        dump(target_encoder, MODELS_DIR / "target_encoder.pkl")  # save encoder
+        dump(target_encoder, MODELS_DIR / "target_encoder.pkl")
 
     # Drop leakage / raw categoricals
     train_df, eval_df = drop_unused_columns(train_df, eval_df)

@@ -38,12 +38,17 @@ def train_model(
     sample_frac: Optional[float] = None,
     random_state: int = 42,
 ):
-    """Train baseline XGB and save model.
+    """
+    Train a baseline XGBoost regression model and save the artifact.
 
-    Returns
-    -------
-    model : XGBRegressor
-    metrics : dict[str, float]
+    Responsibility:
+        - Loads and optionally samples processed data.
+        - Configures and fits XGBRegressor with baseline parameters.
+        - Calculates performance metrics on the evaluation split.
+        - Persists the trained model to the specified output path.
+
+    Returns:
+        tuple[XGBRegressor, dict[str, float]]: Fitted model and metrics dictionary.
     """
     train_df = pd.read_csv(train_path)
     eval_df = pd.read_csv(eval_path)

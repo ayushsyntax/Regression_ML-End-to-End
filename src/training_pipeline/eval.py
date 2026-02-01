@@ -30,6 +30,13 @@ def evaluate_model(
     sample_frac: Optional[float] = None,
     random_state: int = 42,
 ) -> Dict[str, float]:
+    """
+    Load a trained model and calculate performance metrics on a held-out evaluation set.
+
+    Responsibility:
+        - Validates model performance on processed evaluation data.
+        - Reports MAE, RMSE, and R2 metrics.
+    """
     eval_df = pd.read_csv(eval_path)
     eval_df = _maybe_sample(eval_df, sample_frac, random_state)
 

@@ -49,6 +49,21 @@ def predict(
     freq_encoder_path: Path | str = DEFAULT_FREQ_ENCODER,
     target_encoder_path: Path | str = DEFAULT_TARGET_ENCODER,
 ) -> pd.DataFrame:
+    """
+    Execute full inference pipeline on raw input data.
+
+    Responsibility:
+        - Preprocesses raw input (cleaning, normalization, outlier removal).
+        - Applies feature engineering and date Part extraction.
+        - Loads and applies fitted frequency and target encoders.
+        - Aligns input schema with the model's training features.
+        - Generates price predictions using the stored XGBoost model.
+
+    Args:
+        input_df: DataFrame containing raw housing features.
+    Returns:
+        pd.DataFrame: Original features merged with predicted (and actual) prices.
+    """
     # Step 1: Preprocess raw input
     df = clean_and_merge(input_df)
     df = drop_duplicates(df)

@@ -39,7 +39,14 @@ CITY_MAPPING = {
 
 
 def normalize_city(s: str) -> str:
-    """Lowercase, strip, unify dashes. Safe for NA."""
+    """
+    Standardize city string: lowercase, strip whitespace, unify dash characters.
+
+    Args:
+        s: Input city string.
+    Returns:
+        Normalized city string or original if NA.
+    """
     if pd.isna(s):
         return s
     s = str(s).strip().lower()
@@ -50,31 +57,31 @@ def normalize_city(s: str) -> str:
 
 def clean_and_merge(df: pd.DataFrame, metros_path: str | None = "data/raw/usmetros.csv") -> pd.DataFrame:
     """
-    Normalize city names, optionally merge lat/lng from metros dataset.
-    If `city_full` column or `metros_path` is missing, skip gracefully.
-    """
+    Normalize city names and merge geographical coordinates (lat/lng) from metros dataset.
 
+    Responsibility:
+        - Ensures spatial features are joined consistently across splits.
+        - Gracefully skips merge if columns or lookup files are missing.
+    """
     if "city_full" not in df.columns:
         print("⚠️ Skipping city merge: no 'city_full' column present.")
         return df
 
-    # Normalize city_full
+    # Normalize city_full and apply fixes
     df["city_full"] = df["city_full"].apply(normalize_city)
-    # Apply mapping
     norm_mapping = {normalize_city(k): normalize_city(v) for k, v in CITY_MAPPING.items()}
     df["city_full"] = df["city_full"].replace(norm_mapping)
 
-    # 🚨 If lat/lng already present, skip merge
+    # If lat/lng already present or no lookup file, skip merge
     if {"lat", "lng"}.issubset(df.columns):
         print("⚠️ Skipping lat/lng merge: already present in DataFrame.")
         return df
 
-    # If no metros file provided / exists, skip merge
     if not metros_path or not Path(metros_path).exists():
-        print("⚠️ Skipping lat/lng merge: metros file not provided or not found.")
+        print("⚠️ Skipping lat/lng merge: metros file not found.")
         return df
 
-    # Merge lat/lng
+    # Merge lat/lng from reference dataset
     metros = pd.read_csv(metros_path)
     if "metro_full" not in metros.columns or not {"lat", "lng"}.issubset(metros.columns):
         print("⚠️ Skipping lat/lng merge: metros file missing required columns.")
@@ -93,24 +100,29 @@ def clean_and_merge(df: pd.DataFrame, metros_path: str | None = "data/raw/usmetr
     return df
 
 
-
 def drop_duplicates(df: pd.DataFrame) -> pd.DataFrame:
-    """Drop exact duplicates while keeping different dates/years."""
+    """
+    Identify and remove record duplicates based on invariant features.
+    Excludes temporal columns (date, year) to preserve time-series logic.
+    """
     before = df.shape[0]
     df = df.drop_duplicates(subset=df.columns.difference(["date", "year"]), keep=False)
     after = df.shape[0]
-    print(f"✅ Dropped {before - after} duplicate rows (excluding date/year).")
+    print(f"✅ Dropped {before - after} duplicate rows.")
     return df
 
 
 def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove extreme outliers in median_list_price (> 19M)."""
+    """
+    Clip target variable outliers to prevent model skew.
+    Constraint: median_list_price must be <= 19,000,000.
+    """
     if "median_list_price" not in df.columns:
         return df
     before = df.shape[0]
     df = df[df["median_list_price"] <= 19_000_000].copy()
     after = df.shape[0]
-    print(f"✅ Removed {before - after} rows with median_list_price > 19M.")
+    print(f"✅ Removed {before - after} outlier rows (> 19M).")
     return df
 
 

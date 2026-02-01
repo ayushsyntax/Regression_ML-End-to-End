@@ -14,12 +14,13 @@ PREDICTIONS_DIR = DATA_DIR / "predictions"
 
 def run_monthly_predictions() -> List[Dict[str, Any]]:
     """
-    Simulate a monthly batch prediction run using the holdout dataset.
+    Simulate a monthly batch prediction cycle using available test data.
 
-    1. Loads 'new' data (holdout.csv).
-    2. Runs inference pipeline.
-    3. Saves predictions to `data/predictions/preds_<timestamp>.csv`.
-    4. Returns list of predictions.
+    Responsibility:
+        - Orchestrates the loading of 'new' data from the holdout split.
+        - Invokes the inference pipeline for record-level predictions.
+        - Persists batch results to the historical predictions audit log.
+        - Prepares a formatted summary for API or reporting downstream consumers.
     """
     print(f"🚀 Starting batch run at {datetime.datetime.now()}")
 

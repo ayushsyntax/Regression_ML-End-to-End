@@ -61,7 +61,18 @@ def tune_model(
     experiment_name: str = "xgboost_optuna_housing",
     random_state: int = 42,
 ) -> Tuple[Dict, Dict]:
-    """Run Optuna tuning; save best model; return (best_params, best_metrics)."""
+    """
+    Execute hyperparameter optimization using Optuna and track with MLflow.
+
+    Responsibility:
+        - Defines search space for XGBoost hyperparameters.
+        - Minimizes RMSE through iterative trials.
+        - Retrains best model on full training data.
+        - Logs parameters and metrics to MLflow for experiment tracking.
+
+    Returns:
+        tuple[dict, dict]: Best trial parameters and their corresponding metrics.
+    """
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)

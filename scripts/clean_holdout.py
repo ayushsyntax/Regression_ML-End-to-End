@@ -1,5 +1,10 @@
 """
-Generate cleaning_holdout.csv by applying the same cleaning steps from 01_EDA_cleaning.ipynb
+Synchronize cleaning logic from experimentation to the holdout production split.
+
+Responsibility:
+    - Applies the same city standardization and geolocation mapping as the primary training pipeline.
+    - Ensures identical duplicate removal and outlier clipping logic.
+    - Saves the production-ready clean holdout dataset to processed storage.
 """
 import pandas as pd
 from pathlib import Path
@@ -30,7 +35,13 @@ city_mapping = {
 
 
 def clean_and_merge(df: pd.DataFrame) -> pd.DataFrame:
-    """Apply city name fixes, merge lat/lng from metros, drop dup col."""
+    """
+    Standardize city names and merge geographical coordinates.
+
+    Responsibility:
+        - Resolves known city name mismatches.
+        - Joins lat/lng from the reference metros dataset.
+    """
     df["city_full"] = df["city_full"].replace(city_mapping)
 
     # Create a join key in metros by removing the state suffix (e.g. ", GA")
