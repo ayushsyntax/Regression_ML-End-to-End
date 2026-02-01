@@ -101,6 +101,8 @@ def predict(
 
     # Step 6: Load model & predict
     model = load(model_path)
+    # Ensure all columns are numeric (XGBoost requirement)
+    df = df.apply(pd.to_numeric, errors="coerce").fillna(0)
     preds = model.predict(df)
 
     # Step 7: Build output
