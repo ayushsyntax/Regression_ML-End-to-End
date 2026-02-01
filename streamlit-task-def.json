@@ -54,7 +54,7 @@
         },
         {
           "name": "API_URL",
-          "value": "http://PLACEHOLDER_ALB_DNS/predict"
+          "value": "http://housing-alb-341480130.us-east-1.elb.amazonaws.com/predict"
         }
       ]
     }

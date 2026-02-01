@@ -10,16 +10,27 @@ ecs = boto3.client("ecs", region_name=AWS_REGION)
 logs = boto3.client("logs", region_name=AWS_REGION)
 
 def get_default_vpc():
+    """Retrieve the default VPC ID for the current account and region."""
     vpcs = ec2.describe_vpcs(Filters=[{'Name': 'isDefault', 'Values': ['true']}])['Vpcs']
     if not vpcs:
         raise Exception("No default VPC found")
     return vpcs[0]['VpcId']
 
+
 def get_subnets(vpc_id):
+    """Retrieve all subnet IDs associated with the specified VPC."""
     subnets = ec2.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['Subnets']
     return [s['SubnetId'] for s in subnets]
 
+
 def create_security_group(vpc_id):
+    """
+    Initialize the security group with necessary ingress rules for API and Dashboard.
+
+    Responsibility:
+        - Creates 'housing-sg' if not already present.
+        - Authorizes ports 80 (ALB), 8000 (API), and 8501 (Streamlit).
+    """
     sg_name = "housing-sg"
     try:
         sgs = ec2.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': [sg_name]}])['SecurityGroups']
@@ -32,7 +43,6 @@ def create_security_group(vpc_id):
     sg = ec2.create_security_group(GroupName=sg_name, Description="Housing App SG", VpcId=vpc_id)
     sg_id = sg['GroupId']
 
-    # Inbound rules
     ports = [80, 8000, 8501]
     ip_perms = []
     for p in ports:
@@ -47,7 +57,15 @@ def create_security_group(vpc_id):
     print(f"[INFO] Created Security Group {sg_name}: {sg_id}")
     return sg_id
 
+
 def create_alb(subnets, sg_id):
+    """
+    Provision the Application Load Balancer.
+
+    Responsibility:
+        - Creates an internet-facing ALB named 'housing-alb'.
+        - Returns the ARN and DNS name for downstream configuration.
+    """
     alb_name = "housing-alb"
     try:
         albs = elbv2.describe_load_balancers(Names=[alb_name])['LoadBalancers']
@@ -55,9 +73,6 @@ def create_alb(subnets, sg_id):
         return albs[0]['LoadBalancerArn'], albs[0]['DNSName']
     except:
         pass
-
-    # ALB requires at least two subnets in different AZs. Ensure that.
-    # If subnets are in same AZ, this might fail. Assuming default subnets cover multiple AZs.
 
     alb = elbv2.create_load_balancer(
         Name=alb_name,
@@ -72,7 +87,9 @@ def create_alb(subnets, sg_id):
     print(f"[INFO] Created ALB {alb_name}: {dns}")
     return arn, dns
 
+
 def create_target_group(vpc_id, name, port, health_path):
+    """Initialize a target group for routing traffic to ECS tasks."""
     try:
         tgs = elbv2.describe_target_groups(Names=[name])['TargetGroups']
         print(f"[INFO] Target Group {name} exists")
@@ -91,8 +108,16 @@ def create_target_group(vpc_id, name, port, health_path):
     )
     return tg['TargetGroups'][0]['TargetGroupArn']
 
+
 def create_listener(alb_arn, api_tg_arn, dash_tg_arn):
-    # Check if listener exists
+    """
+    Configure the ALB listener and path-based routing rules.
+
+    Responsibility:
+        - Sets up HTTP listener on port 80.
+        - Routes /health and /predict to the API service.
+        - Routes /dashboard and default traffic to the Streamlit service.
+    """
     try:
         listeners = elbv2.describe_listeners(LoadBalancerArn=alb_arn)
         for l in listeners['Listeners']:
@@ -102,31 +127,27 @@ def create_listener(alb_arn, api_tg_arn, dash_tg_arn):
     except:
         pass
 
-    # Create Listener with default action -> Dashboard
     listener = elbv2.create_listener(
         LoadBalancerArn=alb_arn,
         Protocol='HTTP',
         Port=80,
-        DefaultActions=[{'Type': 'forward', 'TargetGroupArn': dash_tg_arn}] # Default to dashboard
+        DefaultActions=[{'Type': 'forward', 'TargetGroupArn': dash_tg_arn}]
     )
     listener_arn = listener['Listeners'][0]['ListenerArn']
 
-    # Rules
-    # /health -> API
+    # Routing Rules
     elbv2.create_rule(
         ListenerArn=listener_arn,
         Conditions=[{'Field': 'path-pattern', 'Values': ['/health*']}],
         Priority=10,
         Actions=[{'Type': 'forward', 'TargetGroupArn': api_tg_arn}]
     )
-    # /predict -> API
     elbv2.create_rule(
         ListenerArn=listener_arn,
         Conditions=[{'Field': 'path-pattern', 'Values': ['/predict*']}],
         Priority=20,
         Actions=[{'Type': 'forward', 'TargetGroupArn': api_tg_arn}]
     )
-    # /dashboard -> Dashboard
     elbv2.create_rule(
         ListenerArn=listener_arn,
         Conditions=[{'Field': 'path-pattern', 'Values': ['/dashboard*']}],
@@ -135,43 +156,49 @@ def create_listener(alb_arn, api_tg_arn, dash_tg_arn):
     )
     print("[INFO] Created Listeners and Rules")
 
+
 def create_log_group(name):
+    """Initialize CloudWatch Log Group for container logging."""
     try:
-        logs.create_log_group(LogGroupName=name)
+        logs.create_log_group(logGroupName=name)
         print(f"[INFO] Created Log Group {name}")
     except:
         pass
 
+
 def register_task_def(filename, alb_dns=None):
+    """
+    Register an ECS task definition while dynamically injecting environment configurations.
+
+    Responsibility:
+        - Replaces hardcoded Account IDs in Roles and Image URIs.
+        - Injects the ALB DNS into the Dashboard's API_URL environment variable.
+    """
     with open(filename, 'r') as f:
         data = json.load(f)
 
-    # Dynamic Account ID replacement
     sts = boto3.client("sts")
     account_id = sts.get_caller_identity()["Account"]
 
-    # Replace Account ID in Roles
+    # Replace Account ID placeholders
     if "executionRoleArn" in data:
         data["executionRoleArn"] = data["executionRoleArn"].replace("005905649662", account_id)
     if "taskRoleArn" in data:
         data["taskRoleArn"] = data["taskRoleArn"].replace("005905649662", account_id)
 
-    # Replace Account ID in Image URI
     for container in data['containerDefinitions']:
         if "image" in container:
              container["image"] = container["image"].replace("005905649662", account_id)
 
-    # If explicit subsitution needed
-    if alb_dns and "housing-streamlit" in filename:
+    # Inject dynamic API URL for Dashboard
+    if alb_dns and "streamlit" in filename.lower():
         for container in data['containerDefinitions']:
             for env in container.get('environment', []):
                 if env['name'] == 'API_URL':
                     env['value'] = f"http://{alb_dns}/predict"
                     print(f"[INFO] Updated API_URL to http://{alb_dns}/predict")
 
-    # Remove unsupported keys if any (like tags if they are strict)
-    # Register
-    response = ecs.register_task_definition(
+    ecs.register_task_definition(
         family=data['family'],
         networkMode=data['networkMode'],
         executionRoleArn=data['executionRoleArn'],
@@ -184,7 +211,15 @@ def register_task_def(filename, alb_dns=None):
     print(f"[INFO] Registered Task Definition: {data['family']}")
     return data['family']
 
+
 def create_service(cluster, service_name, task_def, tg_arn, subnets, sg_id, port):
+    """
+    Provision an ECS service on AWS Fargate.
+
+    Responsibility:
+        - Orchestrates container deployment with desired count and networking.
+        - Links the service to the Application Load Balancer target group.
+    """
     try:
         ecs.create_service(
             cluster=cluster,
@@ -202,7 +237,7 @@ def create_service(cluster, service_name, task_def, tg_arn, subnets, sg_id, port
             loadBalancers=[
                 {
                     'targetGroupArn': tg_arn,
-                    'containerName': task_def.replace("-task", ""), # Assuming container name matches
+                    'containerName': task_def.replace("-task", ""),
                     'containerPort': port
                 }
             ]
