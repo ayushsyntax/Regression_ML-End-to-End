@@ -259,7 +259,7 @@ if __name__ == "__main__":
     # Dashboard Service
     create_service(
         cluster="housing-cluster",
-        service_name="housing-dashboard",
+        service_name="housing-dashboard-v2",
         task_def=dash_task_family,
         tg_arn=dash_tg,
         subnets=subnets,

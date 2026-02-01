@@ -61,5 +61,5 @@ jobs:
         run: |
           aws ecs update-service \
             --cluster housing-cluster \
-            --service housing-dashboard \
+            --service housing-dashboard-v2 \
             --force-new-deployment
