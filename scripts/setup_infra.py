@@ -146,13 +146,28 @@ def register_task_def(filename, alb_dns=None):
     with open(filename, 'r') as f:
         data = json.load(f)
 
+    # Dynamic Account ID replacement
+    sts = boto3.client("sts")
+    account_id = sts.get_caller_identity()["Account"]
+
+    # Replace Account ID in Roles
+    if "executionRoleArn" in data:
+        data["executionRoleArn"] = data["executionRoleArn"].replace("005905649662", account_id)
+    if "taskRoleArn" in data:
+        data["taskRoleArn"] = data["taskRoleArn"].replace("005905649662", account_id)
+
+    # Replace Account ID in Image URI
+    for container in data['containerDefinitions']:
+        if "image" in container:
+             container["image"] = container["image"].replace("005905649662", account_id)
+
     # If explicit subsitution needed
     if alb_dns and "housing-streamlit" in filename:
         for container in data['containerDefinitions']:
             for env in container.get('environment', []):
                 if env['name'] == 'API_URL':
                     env['value'] = f"http://{alb_dns}/predict"
-                    print(f"Updated API_URL to http://{alb_dns}/predict")
+                    print(f"[INFO] Updated API_URL to http://{alb_dns}/predict")
 
     # Remove unsupported keys if any (like tags if they are strict)
     # Register

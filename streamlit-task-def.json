@@ -33,6 +33,14 @@
           "value": "8501"
         },
         {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "S3_BUCKET",
+          "value": "housing-ml-artifacts"
+        },
+        {
           "name": "STREAMLIT_SERVER_ADDRESS",
           "value": "0.0.0.0"
         },
@@ -46,7 +54,7 @@
         },
         {
           "name": "API_URL",
-          "value": "http://housing-api-alb-945997111.eu-west-2.elb.amazonaws.com/predict"
+          "value": "http://PLACEHOLDER_ALB_DNS/predict"
         }
       ]
     }

@@ -19,6 +19,16 @@
           "protocol": "tcp"
         }
       ],
+      "environment": [
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "S3_BUCKET",
+          "value": "housing-ml-artifacts"
+        }
+      ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

@@ -19,13 +19,14 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       # Build and push housing-api image
       - name: Build, Tag, and Push housing-api
         run: |
           IMAGE_TAG=${GITHUB_SHA}
-          ECR_REGISTRY=005905649662.dkr.ecr.us-east-1.amazonaws.com
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY=housing-api
 
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Dockerfile .
@@ -38,7 +39,7 @@ jobs:
       - name: Build, Tag, and Push housing-dashboard
         run: |
           IMAGE_TAG=${GITHUB_SHA}
-          ECR_REGISTRY=005905649662.dkr.ecr.us-east-1.amazonaws.com
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY=housing-dashboard
 
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Dockerfile.streamlit .
