@@ -82,6 +82,8 @@ def upload_artifacts():
     print("Uploading artifacts to S3...")
     artifacts = {
         "models/xgb_best_model.pkl": "models/xgb_best_model.pkl",
+        "models/freq_encoder.pkl": "models/freq_encoder.pkl",
+        "models/target_encoder.pkl": "models/target_encoder.pkl",
         "data/processed/feature_engineered_train.csv": "processed/feature_engineered_train.csv",
         "data/processed/feature_engineered_eval.csv": "processed/feature_engineered_eval.csv",
         "data/processed/feature_engineered_holdout.csv": "processed/feature_engineered_holdout.csv",

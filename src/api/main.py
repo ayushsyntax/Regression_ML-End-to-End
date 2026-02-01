@@ -51,6 +51,8 @@ def load_from_s3(key, local_path):
 # ----------------------------
 # Downloads model + training features from S3 if not cached.
 MODEL_PATH = Path(load_from_s3("models/xgb_best_model.pkl", "models/xgb_best_model.pkl"))
+FREQ_ENCODER_PATH = Path(load_from_s3("models/freq_encoder.pkl", "models/freq_encoder.pkl"))
+TARGET_ENCODER_PATH = Path(load_from_s3("models/target_encoder.pkl", "models/target_encoder.pkl"))
 TRAIN_FE_PATH = Path(load_from_s3("processed/feature_engineered_train.csv", "data/processed/feature_engineered_train.csv"))
 
 # Load expected training features for alignment
@@ -94,7 +96,7 @@ def predict_batch(data: List[dict]):
     if df.empty:
         return {"error": "No data provided"}
 
-    preds_df = predict(df, model_path=MODEL_PATH)
+    preds_df = predict(df, model_path=MODEL_PATH, freq_encoder_path=FREQ_ENCODER_PATH, target_encoder_path=TARGET_ENCODER_PATH)
 
     resp = {"predictions": preds_df["predicted_price"].astype(float).tolist()}
     if "actual_price" in preds_df.columns:

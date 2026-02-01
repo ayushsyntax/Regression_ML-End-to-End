@@ -54,7 +54,7 @@ def target_encode(train: pd.DataFrame, eval: pd.DataFrame, col: str, target: str
         - Handles 'city_full' naming explicitly for inference consistency
     """
     te = TargetEncoder(cols=[col])
-    encoded_col = f"{col}_encoded" if col != "city_full" else "city_full_encoded"
+    encoded_col = f"{col}_encoded" if col != "city_full" else "city_encoded"
     train[encoded_col] = te.fit_transform(train[col], train[target])
     eval[encoded_col] = te.transform(eval[col])
     return train, eval, te
@@ -122,7 +122,7 @@ def run_feature_engineering(
     target_encoder = None
     if "city_full" in train_df.columns:
         train_df, eval_df, target_encoder = target_encode(train_df, eval_df, "city_full", "price")
-        holdout_df["city_full_encoded"] = target_encoder.transform(holdout_df["city_full"])
+        holdout_df["city_encoded"] = target_encoder.transform(holdout_df["city_full"])
         dump(target_encoder, MODELS_DIR / "target_encoder.pkl")
 
     # Drop leakage / raw categoricals

@@ -89,8 +89,8 @@ def test_target_encode_applies_mapping():
     train = pd.DataFrame({"city_full": ["A", "B", "A"], "price": [100, 200, 300]})
     eval = pd.DataFrame({"city_full": ["A", "B"]})
     train, eval, te = target_encode(train, eval, "city_full", "price")
-    assert "city_full_encoded" in train.columns
-    assert eval["city_full_encoded"].notnull().all()
+    assert "city_encoded" in train.columns
+    assert eval["city_encoded"].notnull().all()
     assert te is not None
     print("✅ Target encoding test passed")
 
@@ -140,8 +140,8 @@ def test_full_pipeline_integration(tmp_path):
     )
 
 
-    assert {"year", "zipcode_freq", "city_full_encoded"}.issubset(out_train.columns)
-    assert {"year", "zipcode_freq", "city_full_encoded"}.issubset(out_eval.columns)
+    assert {"year", "zipcode_freq", "city_encoded"}.issubset(out_train.columns)
+    assert {"year", "zipcode_freq", "city_encoded"}.issubset(out_eval.columns)
     assert freq_map is not None
     assert te is not None
     print("✅ Full pipeline integration test passed")
