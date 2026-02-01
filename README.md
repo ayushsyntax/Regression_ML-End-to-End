@@ -11,6 +11,62 @@
 **Quick Project Overview:** [Gamma Case Study Site](https://housing-regression-mle-jpudo2w.gamma.site/)
 **Watch the Full System Walkthrough:** [YouTube Demo](https://youtu.be/b3d6OdrHSvg)
 
+<details>
+<summary><strong>📑 Table of Contents</strong></summary>
+
+### 🏗️ System Architecture & Design
+- [System Architecture](#-system-architecture-as-implemented)
+- [Deployment & Infrastructure](#-deployment--infrastructure)
+- [Beyond the Model: An Engineering System](#-beyond-the-model-an-engineering-system)
+
+### 🧠 Modeling, Data & Decisions
+- [Derived Performance Metrics](#-derived-performance-metrics)
+- [Experiment Tracking (MLflow)](#-experiment-tracking-mlflow)
+- [Data & Modeling Decisions](#-data--modeling-decisions-inferred-from-code)
+- [Feature Engineering Rationale](#-feature-engineering-rationale-deep-dive)
+- [Model Limitations & Known Tradeoffs](#-model-limitations--known-tradeoffs)
+
+### 🧪 Reliability, Guarantees & Failure Handling
+- [Testing & Reliability](#-testing--reliability)
+- [Production Reliability Choices](#-production-reliability-choices)
+- [Failure Modes & Defensive Design](#-failure-modes--defensive-design)
+- [Failure Postmortem](#failure-postmortem-the-object-dtype-mismatch)
+
+### ⚙️ MLOps, CI/CD & Operations
+- [Operational Guide](#-operational-guide)
+- [Inference Paths: Batch vs Online](#-inference-paths-batch-vs-online)
+- [Model Governance and Versioning Semantics](#model-governance-and-versioning-semantics)
+- [Training–Serving Contract](#training-serving-contract)
+- [Reproducibility Boundaries](#reproducibility-boundaries)
+- [Observability and Debug Signals](#observability-and-debug-signals)
+- [Change Management and Safe Evolution](#change-management-and-safe-evolution)
+
+### 🖥️ Product & User Experience
+- [User Experience (Streamlit Dashboard)](#-user-experience-streamlit-dashboard)
+- [This Project Answers](#-this-project-answers)
+- [Why This Is NOT a Kaggle-Style Project](#-why-this-is-not-a-kaggle-style-project)
+- [When This System Is Not the Right Tool](#when-this-system-is-not-the-right-tool)
+
+### 📁 Codebase, Data & Lineage
+- [Codebase Orientation](#-codebase-orientation)
+- [Repository Map & Codebase Tour](#-repository-map--codebase-tour)
+- [End-to-End Data and Artifact Lifecycle](#-end-to-end-data-and-artifact-lifecycle)
+- [End-to-End Data Lineage & Artifact Flow](#-end-to-end-data-lineage--artifact-flow)
+
+### 🔐 Security & Compliance
+- [Security and Configuration](#-security-and-configuration)
+- [Security, Secrets & Access Control](#-security-secrets--access-control)
+
+### 📊 Impact & Stack
+- [What This Project Demonstrates](#-what-this-project-demonstrates)
+- [Impact](#-impact)
+- [Authoritative Technology Stack](#authoritative-technology-stack)
+
+### 📜 Legal
+- [License](#-license)
+
+</details>
+
 ---
 
 ## 🏗️ System Architecture (As Implemented)
@@ -429,3 +485,8 @@ It is important to understand the architectural boundaries of this implementatio
 - **High-Frequency Estimation**: This system is not designed for real-time Millisecond-latency price adjustments. The overhead of the API and pre-processing pipeline makes it suitable for human-in-the-loop or batch decisions.
 - **Unstructured Data**: This is a tabular-first architecture. It does not support image-based valuation (e.g., using property photos) or text-based sentiment analysis of listing descriptions without significant refactoring.
 - **Extreme Scale**: The current in-memory Pandas processing is capped by the ECS Task's RAM. For datasets exceeding 10M rows, a distributed processing engine like Spark or a specialized feature store would be required.
+
+---
+
+## 📜 License
+This project is licensed under the [MIT License](LICENSE).
