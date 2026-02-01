@@ -1,110 +1,129 @@
+# 📋 Project Operations & Technical Runbook
 
------------------------------------------------ Project Setup -----------------------------------------------
-1. Initialize the project structure and templates.
-   - Project follows a standard layout with `src` (source code), `scripts` (automation), `notebooks` (EDA), and `configs`.
-2. Setup environment and dependencies.
-   - Use `pyproject.toml` for managing dependencies.
-   - Create a virtual environment:
-     `uv venv .venv` (or `python -m venv .venv`)
-     `source .venv/bin/activate` (or `.venv\Scripts\activate` on Windows)
-   - Install dependencies:
-     `uv pip install -r pyproject.toml` (or `pip install .`)
-   - Verify installation with `pip list` (check for local package `housing-regression-ml`).
-3. Setup Environment Variables
-   - Create a `.env` file in the root directory.
-   - Add necessary keys: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` (default: "housing-ml-artifacts").
+This file serves as the internal operational manual for the Housing Price Prediction system. It is designed for engineers to maintain, troubleshoot, and evolve the system with full context of its stateful dependencies and cloud infrastructure.
 
------------------------------------------------ Data Setup -----------------------------------------------
-4. Prepare the Raw Data.
-   - Ensure the raw dataset `untouched_raw_original.csv` is present in `data/raw/`.
-   - Run the data splitting script to generate Train/Eval/Holdout sets:
-     `python src/feature_pipeline/load.py`
-   - Verify that `train.csv`, `eval.csv`, and `holdout.csv` are created in `data/raw/`.
+---
 
-5. Explore Data with Notebooks.
-   - Open `notebooks/` to explore EDA.
-   - `01_EDA_cleaning.ipynb`: Check for duplicates, outliers (e.g., price > 10M), and visualize distributions.
-   - `02_feature_eng.ipynb`: Test feature engineering logic locally.
+## 🧘 Mental Model of the System
+The system is architected as a set of decoupled pipelines that move data from raw ingestion to a live serving layer. Compute is ephemeral; state is persisted in AWS S3 and versioned in ECR.
 
------------------------------------------------ Feature Pipeline -----------------------------------------------
-6. Feature Engineering & Preprocessing.
-   - Code is located in `src/feature_pipeline/`.
-   - `load.py`: Handles data ingestion and splitting.
-   - `preprocess.py`: Performs cleaning, imputation (median for missing values), and encoding.
-   - `feature_engineering.py`: Generates derived features (e.g., price per sqft, geo-clusters).
+*   **Local State**: `data/raw/` (ignored), `mlruns/` (local experiment logs), `.env` (secrets).
+*   **Cloud State**: S3 Bucket (Artifacts), ECR (Immutable Images), ECS Task Metadata.
+*   **Artifact Synchrony**: Every API container pulls a triplet of files from S3 on boot: `xgb_best_model.pkl`, `freq_encoder.pkl`, and `target_encoder.pkl`. These were generated together during a single training run to ensure 100% logic parity.
 
-7. Execute the Feature Pipeline.
-   - Run the pipeline to transform raw data into processed data ready for training.
-   - Script might be available in `scripts/02_feature_eng.py` (check logic).
-   - Artifacts (processed CSVs) are saved to `data/processed/`.
+---
 
------------------------------------------------ Training Pipeline -----------------------------------------------
-8. Model Training.
-   - Code located in `src/training_pipeline/`.
-   - `train.py`: Trains the XGBoost model using processed data.
-   - `tune.py`: Performs hyperparameter tuning (Optuna/GridSearch) if needed.
-   - `eval.py`: Evaluates the model on the `eval` set and generates metrics (RMSE, MAE).
-   - Run training: `python src/training_pipeline/train.py`
-   - Model artifact (`xgb_best_model.pkl`) is saved to `models/`.
+## 🛠️ Local Environment Setup
 
-9. Model Evaluation & Metrics.
-   - Check `eval.py` output for performance metrics.
-   - Ensure RMSE is within acceptable business limits.
-   - Metrics are logged (potentially to MLFlow if configured in `configs/mlflow_config.yml`).
+### 1. Dependency Management
+We use **`uv`** for all management. It provides deterministic builds via `uv.lock`.
+*   **Initialization**: `uv sync`
+*   **Activation**: `.venv\Scripts\activate` (Windows)
+*   **Why uv?**: it is 10x faster than pip and strictly enforces the `pyproject.toml` contract.
 
------------------------------------------------ AWS Setup & Provisioning -----------------------------------------------
-10. AWS IAM User Setup.
-    - Login to AWS Console -> IAM -> Create User (e.g., `housing-ml-user`).
-    - Attach Policy: `AdministratorAccess` (or precise permissions for S3, ECR, ECS).
-    - Create Access Keys (CLI) -> Download `.csv`.
-    - Set these keys in your local `.env` file as mentioned in Step 3.
+### 2. Environment Variables
+Create a `.env` file in the root. Production deploy scripts and local tests will fail without:
+- `AWS_ACCESS_KEY_ID`: Your IAM user key.
+- `AWS_SECRET_ACCESS_KEY`: Your IAM secret key.
+- `AWS_DEFAULT_REGION`: `us-east-1` (default).
+- `S3_BUCKET`: The destination for ML artifacts.
 
-11. Provision Cloud Infrastructure.
-    - Use the automation script: `python scripts/provision_aws.py`.
-    - This script will:
-      - Create S3 Bucket (`housing-ml-artifacts`).
-      - Create ECR Repositories (`housing-api`, `housing-dashboard`).
-      - Upload local artifacts (models, processed data) to S3.
-    - Verify resources in AWS Console (S3 and ECR).
+---
 
------------------------------------------------ Application & Docker -----------------------------------------------
-12. API Development (FastAPI).
-    - Code in `src/api/main.py`.
-    - Defines endpoints: `/health` and `/predict`.
-    - Uses `src.inference_pipeline` for loading models and making predictions.
+## 🔄 Data & Artifact Lifecycle
 
-13. Dashboard (Streamlit).
-    - Code in `app.py` (root).
-    - Provides a UI for users to input housing params and get price predictions.
-    - Connects to the API for inference.
+### 1. Data Governance
+Raw data is **never** committed. It lives in `data/raw/untouched_raw_original.csv`. The system uses **Chronological Splitting**:
+- **Train**: Pre-2020 (Baseline learning).
+- **Eval**: 2020-2021 (Hyperparameter refinement).
+- **Holdout**: 2022-2023 (Real-world business validation).
 
-14. Containerization.
-    - `Dockerfile`: Builds the API image.
-    - `Dockerfile.streamlit`: Builds the Dashboard image.
-    - Build locally to test:
-      `docker build -t housing-api -f Dockerfile .`
-      `docker build -t housing-dashboard -f Dockerfile.streamlit .`
+### 2. Pipeline Execution Order
+Pipelines must be run in sequence locally before pushing to the cloud:
+1.  `python src/feature_pipeline/load.py`: Split raw data.
+2.  `python src/feature_pipeline/main_pipeline.py` (or similar): Apply transformations and save encoders.
+3.  `python src/training_pipeline/train.py` (or `tune.py`): Optimize model weights.
+4.  `python scripts/provision_aws.py`: Upload the resulting artifacts to S3.
 
------------------------------------------------ CI/CD Pipeline (Github Actions) -----------------------------------------------
-15. Github Secrets Setup.
-    - Go to Github Repo -> Settings -> Secrets and Variables -> Actions.
-    - Add Repository Secrets:
-      - `AWS_ACCESS_KEY_ID`
-      - `AWS_SECRET_ACCESS_KEY`
-      - `AWS_DEFAULT_REGION` (e.g., us-east-1)
-      - `ECR_REPO` (URI for the api repo)
+---
 
-16. Deployment Workflow.
-    - Check `.github/workflows/ci-cd.yml`.
-    - Workflow triggers on `push` to main.
-    - Steps:
-      - Checkout code.
-      - Install dependencies & Run Tests (`pytest`).
-      - Login to AWS ECR.
-      - Build Docker Images.
-      - Push Images to ECR.
-      - Deploy to AWS ECS (Fargate) using `housing-api-task-def.json` and `streamlit-task-def.json`.
+## 🛤️ Pipeline Operations
 
-17. Continuous Deployment.
-    - Any push to `main` updates the infrastructure.
-    - Verify deployment: Go to AWS ECS -> Clusters -> Select Service -> Check "Tasks" -> Get Public IP/Load Balancer DNS.
+### Feature Pipeline (`src/feature_pipeline`)
+Generates the processed CSVs in `data/processed/`.
+*   **Stateful Encoders**: It saves `freq_encoder.pkl` and `target_encoder.pkl`. These capture the statistical distribution of categories during the training phase.
+*   **Risk**: Changing logic here without retraining the model will break the inference contract.
+
+### Training & Tuning (`src/training_pipeline`)
+Uses **Optuna** for Bayesian optimization.
+*   **MLflow**: Every trial is logged to `mlruns/`. Run `mlflow ui` to compare results.
+*   **Artifacts**: Saves `xgb_best_model.pkl`.
+
+### Inference Pipeline (`src/inference_pipeline`)
+The shared logic used by both the API and Batch jobs.
+*   **Schema Alignment**: Implements a strict `reindex` against training columns. This prevents crashes if a user payload is missing a field.
+*   **Numeric Enforcement**: Forces `pd.to_numeric` on all inputs to resolve the common "Object Dtype" failure in XGBoost.
+
+---
+
+## 🐳 Docker Strategy
+The system uses two separate images to isolate concerns:
+1.  **API Image (`Dockerfile`)**: FastAPI backend + Inference logic. Reindexes incoming JSON and runs predictions.
+2.  **Dashboard Image (`Dockerfile.streamlit`)**: Streamlit frontend. Acts as a client to the API.
+*   **Build Context**: Use the root directory as context (`docker build -f Dockerfile .`).
+*   **Failures**: Typically caused by missing artifacts in `models/` or `data/processed/` during the `uv sync` phase of the build.
+
+---
+
+## ☁️ AWS Infrastructure (The Runbook)
+
+### 1. Provisioning (Zero to S3/ECR)
+Run `python scripts/provision_aws.py`. This script is idempotent and handles:
+- S3 Bucket creation.
+- ECR Repository initialization for 'housing-api' and 'housing-dashboard'.
+- Artifact synchronization (Uploads Model + Encoders to S3).
+
+### 2. Infrastructure (Networking & Compute)
+Run `python scripts/setup_infra.py`. This comprehensive script manages:
+- **VPC & Security Groups**: Opens ports 80 (ALB), 8000 (API), and 8501 (UI).
+- **ALB (Application Load Balancer)**: Configures path-based routing.
+    - `/predict` -> API.
+    - `/health` -> API.
+    - `/dashboard` -> Streamlit.
+- **ECS Cluster & Fargate**: Orchestrates serverless task execution.
+- **Task Definitions**: Injects `API_URL` (the ALB DNS) into the Streamlit container dynamically.
+
+---
+
+## 🚀 Deployment & CI/CD
+Triggered by pushing to `main`.
+*   **Test Gate**: Executes `pytest` in the runner. Failures block the ECR push.
+*   **Rollout**: Uses `forceNewDeployment: true` to ensure ECS tasks pull the latest container image from ECR.
+
+---
+
+## ⚖️ Cost Control & Teardown
+To avoid unnecessary AWS bills:
+1.  **Stop Compute**: Manually set "Desired Tasks" to 0 in the ECS Cluster console.
+2.  **Delete ALB**: The Load Balancer incurs the highest hourly base cost (~$18/mo).
+3.  **Keep ECR/S3**: Storage costs for images and models are negligible (cents per month) and allow faster redeploy later.
+
+---
+
+## 🧪 Common Failure Modes
+
+*   **"XGBoost: feature mismatch"**: You updated the feature pipeline logic but didn't retrain or upload the new model and encoders to S3.
+*   **Health Check 502/503**: The API is likely crashing on startup. Check `get_api_logs.py` to see the traceback. Usually a missing environment variable or S3 permission issue.
+*   **IAM Failures**: Ensure the **ECS Task Execution Role** has `AmazonS3ReadOnlyAccess`.
+
+---
+
+## ⚠️ What NOT To Do
+*   **Do Not** commit files inside `data/raw/` or `data/processed/`.
+*   **Do Not** run `setup_infra.py` multiple times with different Region settings without cleaning the ALB rules manually.
+*   **Do Not** hardcode AWS keys in any script or Dockerfile. Use Task Roles or `.env`.
+
+---
+
+## 🏁 Closing Notes
+Maintain discipline in the artifact lifecycle. If you treat experimental results as production ready without verification, the system integrity will degrade. This architecture is built to be resilient, but it requires that the developer respects the "Chain of Logic" from Raw Data ➔ Features ➔ Model ➔ S3.
