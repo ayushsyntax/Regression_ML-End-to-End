@@ -5,9 +5,9 @@ import plotly.express as px
 import boto3, os
 from pathlib import Path
 
-# ============================
-# Config
-# ============================
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
 API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000/predict")
 S3_BUCKET = os.getenv("S3_BUCKET", "housing-ml-artifacts")
 REGION = os.getenv("AWS_REGION", "us-east-1")
@@ -23,6 +23,15 @@ def load_from_s3(key, local_path):
         s3.download_file(S3_BUCKET, key, str(local_path))
     return str(local_path)
 
+def sanitize_payload(df: pd.DataFrame) -> list:
+    """Convert DataFrame to list of dicts, ensuring NaN/Inf are converted to None (JSON null)."""
+    recs = df.to_dict(orient="records")
+    for r in recs:
+        for k, v in r.items():
+            if pd.isna(v) or v == float('inf') or v == float('-inf'):
+                r[k] = None
+    return recs
+
 # Paths (ensure available locally by fetching from S3 if missing)
 HOLDOUT_ENGINEERED_PATH = load_from_s3(
     "processed/feature_engineered_holdout.csv",
@@ -33,11 +42,12 @@ HOLDOUT_META_PATH = load_from_s3(
     "data/processed/cleaning_holdout.csv"
 )
 
-# ============================
-# Data loading
-# ============================
+# =============================================================================
+# DATA LOADING
+# =============================================================================
 @st.cache_data
 def load_data():
+    """Load and align holdout datasets from local storage."""
     fe = pd.read_csv(HOLDOUT_ENGINEERED_PATH)
     meta = pd.read_csv(HOLDOUT_META_PATH, parse_dates=["date"])[["date", "city_full"]]
 
@@ -58,9 +68,9 @@ def load_data():
 
 fe_df, disp_df = load_data()
 
-# ============================
-# UI
-# ============================
+# =============================================================================
+# USER INTERFACE
+# =============================================================================
 st.title("🏠 Housing Price Prediction — Holdout Explorer")
 
 years = sorted(disp_df["year"].unique())
@@ -88,12 +98,7 @@ if st.button("Show Predictions 🚀"):
         st.write(f"📅 Running predictions for **{year}-{month:02d}** | Region: **{region}**")
 
         # Prepare payload: sanitize NaNs/Infs which break JSON
-        subset = fe_df.loc[idx].copy()
-        # Replace Infs with NaN first, then handle all null-likes
-        subset = subset.replace([float('inf'), float('-inf')], float('nan'))
-        subset = subset.where(pd.notnull(subset), None)
-
-        payload = subset.to_dict(orient="records")
+        payload = sanitize_payload(fe_df.loc[idx])
 
         try:
             resp = requests.post(API_URL, json=payload, timeout=60)
@@ -120,6 +125,7 @@ if st.button("Show Predictions 🚀"):
                 use_container_width=True
             )
 
+            # Metrics display
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.metric("MAE", f"{mae:,.0f}")
@@ -128,13 +134,11 @@ if st.button("Show Predictions 🚀"):
             with c3:
                 st.metric("Avg % Error", f"{avg_pct_error:.2f}%")
 
-            # ============================
-            # Yearly Trend Chart
-            # ============================
+            # Yearly Trend Chart Integration
             if region == "All":
                 yearly_data = disp_df[disp_df["year"] == year].copy()
                 idx_all = yearly_data.index
-                payload_all = fe_df.loc[idx_all].to_dict(orient="records")
+                payload_all = sanitize_payload(fe_df.loc[idx_all])
 
                 resp_all = requests.post(API_URL, json=payload_all, timeout=60)
                 resp_all.raise_for_status()
@@ -145,7 +149,7 @@ if st.button("Show Predictions 🚀"):
             else:
                 yearly_data = disp_df[(disp_df["year"] == year) & (disp_df["region"] == region)].copy()
                 idx_region = yearly_data.index
-                payload_region = fe_df.loc[idx_region].to_dict(orient="records")
+                payload_region = sanitize_payload(fe_df.loc[idx_region])
 
                 resp_region = requests.post(API_URL, json=payload_region, timeout=60)
                 resp_region.raise_for_status()
