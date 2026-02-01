@@ -9,7 +9,7 @@ load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1").strip()
 # Use a distinctive name based on user identity or random if needed,
 # but here we use the one from .env or a default
 S3_BUCKET_NAME = os.getenv("S3_BUCKET", "housing-ml-artifacts")
@@ -30,6 +30,7 @@ ecr_client = boto3.client(
 
 def create_bucket():
     print(f"Creating S3 Bucket: {S3_BUCKET_NAME} in {REGION}...")
+    print(f"DEBUG: REGION='{REGION}'")
     try:
         if REGION == "us-east-1":
             s3_client.create_bucket(Bucket=S3_BUCKET_NAME)
@@ -46,17 +47,16 @@ def create_bucket():
             print(f"❌ Failed to create bucket: {e}")
 
 def create_ecr_repos():
-    repos = ["housing-regression-api", "housing-regression-ui"]
+    repos = ["housing-api", "housing-dashboard"]
     for repo in repos:
-        print(f"Creating ECR Repo: {repo}...")
+        print(f"Creating ECR Repo: '{repo}'...")
         try:
-            ecr_client.create_repository(RepositoryName=repo)
+            ecr_client.create_repository(repositoryName=repo)
             print(f"✅ Repository {repo} created.")
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'RepositoryAlreadyExists':
-                print(f"✅ Repository {repo} already exists.")
-            else:
-                print(f"❌ Failed to create repo {repo}: {e}")
+        except Exception as e:
+            print(f"❌ Failed to create repo {repo}: {e}")
+            import traceback
+            traceback.print_exc()
 
 def upload_artifacts():
     print("Uploading artifacts to S3...")

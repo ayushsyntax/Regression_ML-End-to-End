@@ -1,0 +1,54 @@
+{
+  "family": "housing-streamlit",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::005905649662:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::005905649662:role/ecs_s3_access",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "containerDefinitions": [
+    {
+      "name": "housing-streamlit",
+      "image": "005905649662.dkr.ecr.us-east-1.amazonaws.com/housing-dashboard:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8501,
+          "protocol": "tcp"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/housing-dashboard",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        {
+          "name": "STREAMLIT_SERVER_PORT",
+          "value": "8501"
+        },
+        {
+          "name": "STREAMLIT_SERVER_ADDRESS",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "STREAMLIT_SERVER_BASEURLPATH",
+          "value": "/dashboard"
+        },
+        {
+          "name": "STREAMLIT_BROWSER_GATHERUSAGESTATS",
+          "value": "false"
+        },
+        {
+          "name": "API_URL",
+          "value": "http://housing-api-alb-945997111.eu-west-2.elb.amazonaws.com/predict"
+        }
+      ]
+    }
+  ]
+}

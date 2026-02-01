@@ -1,0 +1,32 @@
+{
+  "family": "housing-api-task",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::005905649662:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::005905649662:role/ecs_s3_access",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "containerDefinitions": [
+    {
+      "name": "housing-api",
+      "image": "005905649662.dkr.ecr.us-east-1.amazonaws.com/housing-api:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/housing-api",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

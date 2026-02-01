@@ -25,7 +25,7 @@ jobs:
       - name: Build, Tag, and Push housing-api
         run: |
           IMAGE_TAG=${GITHUB_SHA}
-          ECR_REGISTRY=261899902410.dkr.ecr.eu-west-2.amazonaws.com
+          ECR_REGISTRY=005905649662.dkr.ecr.us-east-1.amazonaws.com
           ECR_REPOSITORY=housing-api
 
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Dockerfile .
@@ -34,12 +34,12 @@ jobs:
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      # Build and push housing-streamlit image
-      - name: Build, Tag, and Push housing-streamlit
+      # Build and push housing-dashboard image
+      - name: Build, Tag, and Push housing-dashboard
         run: |
           IMAGE_TAG=${GITHUB_SHA}
-          ECR_REGISTRY=261899902410.dkr.ecr.eu-west-2.amazonaws.com
-          ECR_REPOSITORY=housing-streamlit
+          ECR_REGISTRY=005905649662.dkr.ecr.us-east-1.amazonaws.com
+          ECR_REPOSITORY=housing-dashboard
 
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Dockerfile.streamlit .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
@@ -48,17 +48,17 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       # Deploy to ECS - API
-      - name: Deploy housing-api-service
+      - name: Deploy housing-api
         run: |
           aws ecs update-service \
-            --cluster housing-api-cluster-ecs \
-            --service housing-api-service \
+            --cluster housing-cluster \
+            --service housing-api \
             --force-new-deployment
 
-      # Deploy to ECS - Streamlit
-      - name: Deploy housing-streamlit-service
+      # Deploy to ECS - Dashboard
+      - name: Deploy housing-dashboard
         run: |
           aws ecs update-service \
-            --cluster housing-api-cluster-ecs \
-            --service housing-streamlit-service \
+            --cluster housing-cluster \
+            --service housing-dashboard \
             --force-new-deployment
