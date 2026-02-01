@@ -1,0 +1,110 @@
+
+----------------------------------------------- Project Setup -----------------------------------------------
+1. Initialize the project structure and templates.
+   - Project follows a standard layout with `src` (source code), `scripts` (automation), `notebooks` (EDA), and `configs`.
+2. Setup environment and dependencies.
+   - Use `pyproject.toml` for managing dependencies.
+   - Create a virtual environment:
+     `uv venv .venv` (or `python -m venv .venv`)
+     `source .venv/bin/activate` (or `.venv\Scripts\activate` on Windows)
+   - Install dependencies:
+     `uv pip install -r pyproject.toml` (or `pip install .`)
+   - Verify installation with `pip list` (check for local package `housing-regression-ml`).
+3. Setup Environment Variables
+   - Create a `.env` file in the root directory.
+   - Add necessary keys: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` (default: "housing-ml-artifacts").
+
+----------------------------------------------- Data Setup -----------------------------------------------
+4. Prepare the Raw Data.
+   - Ensure the raw dataset `untouched_raw_original.csv` is present in `data/raw/`.
+   - Run the data splitting script to generate Train/Eval/Holdout sets:
+     `python src/feature_pipeline/load.py`
+   - Verify that `train.csv`, `eval.csv`, and `holdout.csv` are created in `data/raw/`.
+
+5. Explore Data with Notebooks.
+   - Open `notebooks/` to explore EDA.
+   - `01_EDA_cleaning.ipynb`: Check for duplicates, outliers (e.g., price > 10M), and visualize distributions.
+   - `02_feature_eng.ipynb`: Test feature engineering logic locally.
+
+----------------------------------------------- Feature Pipeline -----------------------------------------------
+6. Feature Engineering & Preprocessing.
+   - Code is located in `src/feature_pipeline/`.
+   - `load.py`: Handles data ingestion and splitting.
+   - `preprocess.py`: Performs cleaning, imputation (median for missing values), and encoding.
+   - `feature_engineering.py`: Generates derived features (e.g., price per sqft, geo-clusters).
+
+7. Execute the Feature Pipeline.
+   - Run the pipeline to transform raw data into processed data ready for training.
+   - Script might be available in `scripts/02_feature_eng.py` (check logic).
+   - Artifacts (processed CSVs) are saved to `data/processed/`.
+
+----------------------------------------------- Training Pipeline -----------------------------------------------
+8. Model Training.
+   - Code located in `src/training_pipeline/`.
+   - `train.py`: Trains the XGBoost model using processed data.
+   - `tune.py`: Performs hyperparameter tuning (Optuna/GridSearch) if needed.
+   - `eval.py`: Evaluates the model on the `eval` set and generates metrics (RMSE, MAE).
+   - Run training: `python src/training_pipeline/train.py`
+   - Model artifact (`xgb_best_model.pkl`) is saved to `models/`.
+
+9. Model Evaluation & Metrics.
+   - Check `eval.py` output for performance metrics.
+   - Ensure RMSE is within acceptable business limits.
+   - Metrics are logged (potentially to MLFlow if configured in `configs/mlflow_config.yml`).
+
+----------------------------------------------- AWS Setup & Provisioning -----------------------------------------------
+10. AWS IAM User Setup.
+    - Login to AWS Console -> IAM -> Create User (e.g., `housing-ml-user`).
+    - Attach Policy: `AdministratorAccess` (or precise permissions for S3, ECR, ECS).
+    - Create Access Keys (CLI) -> Download `.csv`.
+    - Set these keys in your local `.env` file as mentioned in Step 3.
+
+11. Provision Cloud Infrastructure.
+    - Use the automation script: `python scripts/provision_aws.py`.
+    - This script will:
+      - Create S3 Bucket (`housing-ml-artifacts`).
+      - Create ECR Repositories (`housing-api`, `housing-dashboard`).
+      - Upload local artifacts (models, processed data) to S3.
+    - Verify resources in AWS Console (S3 and ECR).
+
+----------------------------------------------- Application & Docker -----------------------------------------------
+12. API Development (FastAPI).
+    - Code in `src/api/main.py`.
+    - Defines endpoints: `/health` and `/predict`.
+    - Uses `src.inference_pipeline` for loading models and making predictions.
+
+13. Dashboard (Streamlit).
+    - Code in `app.py` (root).
+    - Provides a UI for users to input housing params and get price predictions.
+    - Connects to the API for inference.
+
+14. Containerization.
+    - `Dockerfile`: Builds the API image.
+    - `Dockerfile.streamlit`: Builds the Dashboard image.
+    - Build locally to test:
+      `docker build -t housing-api -f Dockerfile .`
+      `docker build -t housing-dashboard -f Dockerfile.streamlit .`
+
+----------------------------------------------- CI/CD Pipeline (Github Actions) -----------------------------------------------
+15. Github Secrets Setup.
+    - Go to Github Repo -> Settings -> Secrets and Variables -> Actions.
+    - Add Repository Secrets:
+      - `AWS_ACCESS_KEY_ID`
+      - `AWS_SECRET_ACCESS_KEY`
+      - `AWS_DEFAULT_REGION` (e.g., us-east-1)
+      - `ECR_REPO` (URI for the api repo)
+
+16. Deployment Workflow.
+    - Check `.github/workflows/ci-cd.yml`.
+    - Workflow triggers on `push` to main.
+    - Steps:
+      - Checkout code.
+      - Install dependencies & Run Tests (`pytest`).
+      - Login to AWS ECR.
+      - Build Docker Images.
+      - Push Images to ECR.
+      - Deploy to AWS ECS (Fargate) using `housing-api-task-def.json` and `streamlit-task-def.json`.
+
+17. Continuous Deployment.
+    - Any push to `main` updates the infrastructure.
+    - Verify deployment: Go to AWS ECS -> Clusters -> Select Service -> Check "Tasks" -> Get Public IP/Load Balancer DNS.

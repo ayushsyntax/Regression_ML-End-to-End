@@ -1,5 +1,16 @@
-# Goal: Create a FastAPI app to serve your trained ML model into a web service that anyone
-# (or any system) can call over HTTP.
+"""
+Goal: Create a FastAPI app to serve your trained ML model into a web service that anyone
+(or any system) can call over HTTP.
+
+Execution Order / Module Flow:
+1. Imports (FastAPI, pandas, boto3, your inference function).
+2. Config setup (env vars → bucket/region).
+3. S3 utility (load_from_s3).
+4. Download + load model/artifacts (MODEL_PATH, TRAIN_FE_PATH).
+5. Infer schema (TRAIN_FEATURE_COLUMNS).
+6. Create FastAPI app (app = FastAPI).
+7. Declare endpoints (/, /health, /predict, /run_batch, /latest_predictions).
+"""
 
 from fastapi import FastAPI            # Web framework for APIs
 from pathlib import Path               # For handling file paths cleanly
@@ -17,10 +28,12 @@ S3_BUCKET = os.getenv("S3_BUCKET", "housing-ml-artifacts")
 REGION = os.getenv("AWS_REGION", "us-east-1")
 s3 = boto3.client("s3", region_name=REGION)
 
-# Ensures your app always has the latest model/data locally,
-# but avoids re-downloading every time it starts.
 def load_from_s3(key, local_path):
-    """Download from S3 if not already cached locally."""
+    """Download from S3 if not already cached locally.
+
+    Ensures your app always has the latest model/data locally,
+    but avoids re-downloading every time it starts.
+    """
     local_path = Path(local_path)
     if not local_path.exists():
         os.makedirs(local_path.parent, exist_ok=True)
@@ -48,14 +61,14 @@ else:
 # Instantiates the FastAPI app.
 app = FastAPI(title="Housing Regression API")
 
-# / → simple landing endpoint to confirm API is alive.
 @app.get("/")
 def root():
+    """Simple landing endpoint to confirm API is alive."""
     return {"message": "Housing Regression API is running 🚀"}
 
-# /health → checks if model exists, returns status info (like expected feature count).
 @app.get("/health")
 def health():
+    """Check if model exists and return status info (like expected feature count)."""
     status: Dict[str, Any] = {"model_path": str(MODEL_PATH)}
     if not MODEL_PATH.exists():
         status["status"] = "unhealthy"
@@ -66,9 +79,9 @@ def health():
             status["n_features_expected"] = len(TRAIN_FEATURE_COLUMNS)
     return status
 
-# Prediction Endpoint: This is the core ML serving endpoint.
 @app.post("/predict")
 def predict_batch(data: List[dict]):
+    """Prediction Endpoint: This is the core ML serving endpoint."""
     if not MODEL_PATH.exists():
         return {"error": f"Model not found at {str(MODEL_PATH)}"}
 
@@ -87,9 +100,9 @@ def predict_batch(data: List[dict]):
 # Batch runner
 from src.batch.run_monthly import run_monthly_predictions
 
-# Trigger a monthly batch job via API.
 @app.post("/run_batch")
 def run_batch():
+    """Trigger a monthly batch job via API."""
     preds = run_monthly_predictions()
     return {
         "status": "success",
@@ -97,9 +110,9 @@ def run_batch():
         "output_dir": "data/predictions/"
     }
 
-# Returns a preview of the most recent batch predictions.
 @app.get("/latest_predictions")
 def latest_predictions(limit: int = 5):
+    """Returns a preview of the most recent batch predictions."""
     pred_dir = Path("data/predictions")
     files = sorted(pred_dir.glob("preds_*.csv"))
     if not files:

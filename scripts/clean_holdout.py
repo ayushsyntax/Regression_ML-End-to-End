@@ -48,9 +48,9 @@ def clean_and_merge(df: pd.DataFrame) -> pd.DataFrame:
     # Log any cities that still didn't match
     missing = df[df["lat"].isnull()]["city_full"].unique()
     if len(missing) > 0:
-        print("⚠️ Still missing lat/lng for:", missing)
+        print("[WARNING] Still missing lat/lng for:", missing)
     else:
-        print("✅ All cities matched with metros dataset.")
+        print("[INFO] All cities matched with metros dataset.")
 
     return df
 
@@ -79,4 +79,4 @@ print(f"Final shape: {holdout_df.shape}")
 # Save cleaned dataset
 output_path = PROCESSED_DIR / "cleaning_holdout.csv"
 holdout_df.to_csv(output_path, index=False)
-print(f"\n✅ Saved cleaned holdout dataset to: {output_path}")
+print(f"\n[INFO] Saved cleaned holdout dataset to: {output_path}")

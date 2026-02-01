@@ -24,7 +24,7 @@ def create_security_group(vpc_id):
     try:
         sgs = ec2.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': [sg_name]}])['SecurityGroups']
         if sgs:
-            print(f"✅ Security Group {sg_name} exists: {sgs[0]['GroupId']}")
+            print(f"[INFO] Security Group {sg_name} exists: {sgs[0]['GroupId']}")
             return sgs[0]['GroupId']
     except:
         pass
@@ -44,14 +44,14 @@ def create_security_group(vpc_id):
         })
 
     ec2.authorize_security_group_ingress(GroupId=sg_id, IpPermissions=ip_perms)
-    print(f"✅ Created Security Group {sg_name}: {sg_id}")
+    print(f"[INFO] Created Security Group {sg_name}: {sg_id}")
     return sg_id
 
 def create_alb(subnets, sg_id):
     alb_name = "housing-alb"
     try:
         albs = elbv2.describe_load_balancers(Names=[alb_name])['LoadBalancers']
-        print(f"✅ ALB {alb_name} exists: {albs[0]['DNSName']}")
+        print(f"[INFO] ALB {alb_name} exists: {albs[0]['DNSName']}")
         return albs[0]['LoadBalancerArn'], albs[0]['DNSName']
     except:
         pass
@@ -69,13 +69,13 @@ def create_alb(subnets, sg_id):
     )
     arn = alb['LoadBalancers'][0]['LoadBalancerArn']
     dns = alb['LoadBalancers'][0]['DNSName']
-    print(f"✅ Created ALB {alb_name}: {dns}")
+    print(f"[INFO] Created ALB {alb_name}: {dns}")
     return arn, dns
 
 def create_target_group(vpc_id, name, port, health_path):
     try:
         tgs = elbv2.describe_target_groups(Names=[name])['TargetGroups']
-        print(f"✅ Target Group {name} exists")
+        print(f"[INFO] Target Group {name} exists")
         return tgs[0]['TargetGroupArn']
     except:
         pass
@@ -97,7 +97,7 @@ def create_listener(alb_arn, api_tg_arn, dash_tg_arn):
         listeners = elbv2.describe_listeners(LoadBalancerArn=alb_arn)
         for l in listeners['Listeners']:
             if l['Port'] == 80:
-                print("✅ Listener on port 80 exists")
+                print("[INFO] Listener on port 80 exists")
                 return l['ListenerArn']
     except:
         pass
@@ -133,12 +133,12 @@ def create_listener(alb_arn, api_tg_arn, dash_tg_arn):
         Priority=30,
         Actions=[{'Type': 'forward', 'TargetGroupArn': dash_tg_arn}]
     )
-    print("✅ Created Listeners and Rules")
+    print("[INFO] Created Listeners and Rules")
 
 def create_log_group(name):
     try:
         logs.create_log_group(LogGroupName=name)
-        print(f"✅ Created Log Group {name}")
+        print(f"[INFO] Created Log Group {name}")
     except:
         pass
 
@@ -166,7 +166,7 @@ def register_task_def(filename, alb_dns=None):
         memory=data['memory'],
         containerDefinitions=data['containerDefinitions']
     )
-    print(f"✅ Registered Task Definition: {data['family']}")
+    print(f"[INFO] Registered Task Definition: {data['family']}")
     return data['family']
 
 def create_service(cluster, service_name, task_def, tg_arn, subnets, sg_id, port):
@@ -192,12 +192,12 @@ def create_service(cluster, service_name, task_def, tg_arn, subnets, sg_id, port
                 }
             ]
         )
-        print(f"✅ Created Service {service_name}")
+        print(f"[INFO] Created Service {service_name}")
     except Exception as e:
         if "Creation of service was not idempotent" in str(e):
-             print(f"✅ Service {service_name} already exists (idempotency check)")
+             print(f"[INFO] Service {service_name} already exists (idempotency check)")
         else:
-            print(f"❌ Failed/Skipped Service {service_name}: {e}")
+            print(f"[ERROR] Failed/Skipped Service {service_name}: {e}")
 
 if __name__ == "__main__":
     vpc_id = get_default_vpc()
@@ -216,7 +216,7 @@ if __name__ == "__main__":
 
     try:
         ecs.create_cluster(clusterName="housing-cluster")
-        print("✅ Cluster 'housing-cluster' created/exists")
+        print("[INFO] Cluster 'housing-cluster' created/exists")
     except:
         pass
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
         port=8501
     )
 
-    print("\n✅ Infrastructure Setup Complete!")
-    print(f"🌍 Application Load Balancer URL: http://{alb_dns}")
-    print("   - API Health: http://{alb_dns}/health")
-    print("   - Dashboard: http://{alb_dns}/dashboard")
+    print("\n[INFO] Infrastructure Setup Complete!")
+    print(f"Application Load Balancer URL: http://{alb_dns}")
+    print(f"   - API Health: http://{alb_dns}/health")
+    print(f"   - Dashboard: http://{alb_dns}/dashboard")

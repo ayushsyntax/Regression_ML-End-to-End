@@ -44,3 +44,6 @@ models/
 coverage.xml
 *.coverage
 htmlcov/
+*.log
+.pytest_cache/
+.DS_Store

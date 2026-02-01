@@ -29,6 +29,7 @@ ecr_client = boto3.client(
 )
 
 def create_bucket():
+    """Create the S3 bucket if it does not exist."""
     print(f"Creating S3 Bucket: {S3_BUCKET_NAME} in {REGION}...")
     print(f"DEBUG: REGION='{REGION}'")
     try:
@@ -39,26 +40,28 @@ def create_bucket():
                 Bucket=S3_BUCKET_NAME,
                 CreateBucketConfiguration={"LocationConstraint": REGION}
             )
-        print("✅ Bucket created (or already exists).")
+        print("[INFO] Bucket created (or already exists).")
     except ClientError as e:
         if e.response['Error']['Code'] == 'BucketAlreadyOwnedByYou':
-            print("✅ Bucket already exists and is owned by you.")
+            print("[INFO] Bucket already exists and is owned by you.")
         else:
-            print(f"❌ Failed to create bucket: {e}")
+            print(f"[ERROR] Failed to create bucket: {e}")
 
 def create_ecr_repos():
+    """Create ECR repositories for API and Dashboard."""
     repos = ["housing-api", "housing-dashboard"]
     for repo in repos:
         print(f"Creating ECR Repo: '{repo}'...")
         try:
             ecr_client.create_repository(repositoryName=repo)
-            print(f"✅ Repository {repo} created.")
+            print(f"[INFO] Repository {repo} created.")
         except Exception as e:
-            print(f"❌ Failed to create repo {repo}: {e}")
+            print(f"[ERROR] Failed to create repo {repo}: {e}")
             import traceback
             traceback.print_exc()
 
 def upload_artifacts():
+    """Upload model and processed data artifacts to S3."""
     print("Uploading artifacts to S3...")
 
     # Define files to upload (Local Path -> S3 Key)
@@ -73,10 +76,10 @@ def upload_artifacts():
 
     for local_path, s3_key in artifacts.items():
         if os.path.exists(local_path):
-            print(f"⬆️ Uploading {local_path} -> s3://{S3_BUCKET_NAME}/{s3_key}")
+            print(f"[INFO] Uploading {local_path} -> s3://{S3_BUCKET_NAME}/{s3_key}")
             s3_client.upload_file(local_path, S3_BUCKET_NAME, s3_key)
         else:
-            print(f"⚠️ File not found (skipping): {local_path}")
+            print(f"[WARNING] File not found (skipping): {local_path}")
 
 if __name__ == "__main__":
     create_bucket()

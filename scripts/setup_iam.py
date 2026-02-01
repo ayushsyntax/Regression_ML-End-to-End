@@ -25,21 +25,21 @@ def create_execution_role():
             AssumeRolePolicyDocument=json.dumps(trust_policy),
             Description="ECS Task Execution Role"
         )
-        print(f"✅ Created role: {role_name}")
+        print(f"[INFO] Created role: {role_name}")
     except ClientError as e:
         if e.response['Error']['Code'] == 'EntityAlreadyExists':
-            print(f"✅ Role {role_name} already exists.")
+            print(f"[INFO] Role {role_name} already exists.")
         else:
-            print(f"❌ Failed to create role {role_name}: {e}")
+            print(f"[ERROR] Failed to create role {role_name}: {e}")
             return None
 
     # Attach policy
     try:
         policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
         iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-        print(f"✅ Attached {policy_arn} to {role_name}")
+        print(f"[INFO] Attached {policy_arn} to {role_name}")
     except Exception as e:
-        print(f"❌ Failed to attach policy: {e}")
+        print(f"[ERROR] Failed to attach policy: {e}")
 
     return iam.get_role(RoleName=role_name)['Role']['Arn']
 
@@ -62,21 +62,21 @@ def create_task_role():
             AssumeRolePolicyDocument=json.dumps(trust_policy),
             Description="ECS Task Role for S3 Access"
         )
-        print(f"✅ Created role: {role_name}")
+        print(f"[INFO] Created role: {role_name}")
     except ClientError as e:
         if e.response['Error']['Code'] == 'EntityAlreadyExists':
-            print(f"✅ Role {role_name} already exists.")
+            print(f"[INFO] Role {role_name} already exists.")
         else:
-            print(f"❌ Failed to create role {role_name}: {e}")
+            print(f"[ERROR] Failed to create role {role_name}: {e}")
             return None
 
     # Attach S3 Full Access
     try:
         policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
         iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-        print(f"✅ Attached {policy_arn} to {role_name}")
+        print(f"[INFO] Attached {policy_arn} to {role_name}")
     except Exception as e:
-        print(f"❌ Failed to attach policy: {e}")
+        print(f"[ERROR] Failed to attach policy: {e}")
 
     return iam.get_role(RoleName=role_name)['Role']['Arn']
 
